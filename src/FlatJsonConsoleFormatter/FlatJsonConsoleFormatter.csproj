@@ -8,9 +8,10 @@
     <Description>Provides a json formatter for use with Microsoft.Extensions.Logging that is similar to JsonConsoleFormatter except that state and scope keys are flattened into properties on a single json object instead of written as nested object. This results in a simpler json formatted log message that is just a list of key-value pairs.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
     <RepositoryUrl>https://github.com/nick-durcholz-vectorsolutions/FlatJsonConsoleFormatter</RepositoryUrl>
-    <RepositoryType>GitHub</RepositoryType>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/nick-durcholz-vectorsolutions/FlatJsonConsoleFormatter</PackageProjectUrl>
   </PropertyGroup>
 
   <ItemGroup>
