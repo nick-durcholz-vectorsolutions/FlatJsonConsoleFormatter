@@ -79,4 +79,4 @@ FlatJsonConsoleFormatter will log the following message instead:
         "CustomerId": 32120
     }
 
-It does this by merging the state and scope keys into a dictionary and writing them as top-level properties. State keys (the ones you specify in your structured log message) will override scope keys where there is a naming conflict.
+It does this by merging the state and scope keys into a dictionary and writing them as top-level properties. When there is a conflict between the names of keys from different sources, a number is appended to one of them to differentiate.
