@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <TargetFrameworks>net6.0;net7.0;netstandard2.1;net48</TargetFrameworks>
+    <LangVersion>11</LangVersion>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Description>Provides a json formatter for use with Microsoft.Extensions.Logging that is similar to JsonConsoleFormatter except that state and scope keys are flattened into properties on a single json object instead of written as nested object. This results in a simpler json formatted log message that is just a list of key-value pairs.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="7.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="7.0.0" />
+  </ItemGroup>
+
+</Project>
