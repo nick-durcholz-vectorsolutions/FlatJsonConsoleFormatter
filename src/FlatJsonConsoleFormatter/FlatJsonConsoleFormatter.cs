@@ -45,47 +45,46 @@ public class FlatJsonConsoleFormatter : ConsoleFormatter, IDisposable
         {
             using (var writer = new Utf8JsonWriter(output, FormatterOptions.JsonWriterOptions))
             {
-                writer.WriteStartObject();
+                var messageProperties = new Dictionary<string, object?>();
                 var timestampFormat = FormatterOptions.TimestampFormat;
                 if (timestampFormat != null)
                 {
                     DateTimeOffset dateTimeOffset = FormatterOptions.UseUtcTimestamp ? DateTimeOffset.UtcNow : DateTimeOffset.Now;
-                    writer.WriteString("Timestamp", dateTimeOffset.ToString(timestampFormat));
+                    AddMessageProperty(messageProperties, "Timestamp", dateTimeOffset.ToString(timestampFormat));
                 }
                 if (FormatterOptions.IncludeEventId)
-                    writer.WriteNumber(nameof(logEntry.EventId), eventId);
-                writer.WriteString(nameof(logEntry.LogLevel), GetLogLevelString(logLevel));
+                    AddMessageProperty(messageProperties, nameof(logEntry.EventId), eventId);
+                AddMessageProperty(messageProperties, nameof(logEntry.LogLevel), GetLogLevelString(logLevel));
                 if (FormatterOptions.TruncateCategory)
                 {
-                    var cat = logEntry.Category.AsSpan();
+                    var cat = logEntry.Category;
                     int i = cat.LastIndexOf('.');
                     if (i > 0)
-                        cat = cat.Slice(i + 1);
-                    writer.WriteString(nameof(logEntry.Category), cat);
+                        cat = cat.Substring(i + 1);
+                    AddMessageProperty(messageProperties, nameof(logEntry.Category), cat);
                 }
                 else
-                    writer.WriteString(nameof(logEntry.Category), category);
-                writer.WriteString("Message", message);
+                    AddMessageProperty(messageProperties, nameof(logEntry.Category), category);
+                AddMessageProperty(messageProperties, "Message", message);
 
                 if (exception != null)
                 {
-                    writer.WriteString(nameof(Exception), exception.ToString());
+                    AddMessageProperty(messageProperties, nameof(Exception), exception.ToString());
                 }
 
-                var messageProperties = new Dictionary<string, object?>(0);
                 AddScopeInformation(messageProperties, writer, scopeProvider);
                 if (logEntry.State is IReadOnlyCollection<KeyValuePair<string, object>> stateProperties)
                 {
                     foreach (KeyValuePair<string, object> item in stateProperties)
                     {
                         if (item.Key != "{OriginalFormat}")
-                            messageProperties[item.Key] = item.Value;
+                            AddMessageProperty(messageProperties, item.Key, item.Value);
                     }
                 }
 
+                writer.WriteStartObject();
                 foreach (var prop in messageProperties) 
                     WriteItem(writer, prop);
-
                 writer.WriteEndObject();
                 writer.Flush();
             }
@@ -96,6 +95,15 @@ public class FlatJsonConsoleFormatter : ConsoleFormatter, IDisposable
 #endif
         }
         textWriter.Write(Environment.NewLine);
+    }
+
+    private static void AddMessageProperty(Dictionary<string, object?> messageProperties, string key, object value)
+    {
+        string k = key;
+        int n = 1;
+        while (messageProperties.ContainsKey(k)) 
+            k = $"{key}_{n++}";
+        messageProperties.Add(k, value);
     }
 
     private static string GetLogLevelString(LogLevel logLevel)
@@ -123,12 +131,12 @@ public class FlatJsonConsoleFormatter : ConsoleFormatter, IDisposable
                 {
                     foreach (KeyValuePair<string, object> item in scopeItems)
                     {
-                        messageProperties[item.Key] = item.Value;
+                        AddMessageProperty(messageProperties, item.Key, item.Value);
                     }
                 }
                 else
                 {
-                    messageProperties[$"Scope{scopeNum++}"] = ToInvariantString(scope);
+                    AddMessageProperty(messageProperties, $"Scope{scopeNum++}", ToInvariantString(scope));
                 }
             }, writer);
         }
