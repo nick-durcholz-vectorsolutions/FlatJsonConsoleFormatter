@@ -97,13 +97,20 @@ public class FlatJsonConsoleFormatter : ConsoleFormatter, IDisposable
         textWriter.Write(Environment.NewLine);
     }
 
-    private static void AddMessageProperty(Dictionary<string, object?> messageProperties, string key, object value)
+    private void AddMessageProperty(Dictionary<string, object?> messageProperties, string key, object value)
     {
-        string k = key;
-        int n = 1;
-        while (messageProperties.ContainsKey(k)) 
-            k = $"{key}_{n++}";
-        messageProperties.Add(k, value);
+        if (FormatterOptions.MergeDuplicateKeys)
+        {
+            messageProperties[key] = value;
+        }
+        else
+        {
+            string k = key;
+            int n = 1;
+            while (messageProperties.ContainsKey(k))
+                k = $"{key}_{n++}";
+            messageProperties.Add(k, value);
+        }
     }
 
     private static string GetLogLevelString(LogLevel logLevel)
