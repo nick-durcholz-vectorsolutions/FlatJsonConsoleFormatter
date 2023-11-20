@@ -2,22 +2,22 @@
 
   <PropertyGroup>
     <Nullable>enable</Nullable>
-    <TargetFrameworks>net6.0;net7.0;netstandard2.1;net48</TargetFrameworks>
-    <LangVersion>11</LangVersion>
+    <TargetFrameworks>net6.0;netstandard2.1;net8.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Description>Provides a json formatter for use with Microsoft.Extensions.Logging that is similar to JsonConsoleFormatter except that state and scope keys are flattened into properties on a single json object instead of written as nested object. This results in a simpler json formatted log message that is just a list of key-value pairs.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <Version>1.2.0</Version>
+    <Version>1.2.1</Version>
     <RepositoryUrl>https://github.com/nick-durcholz-vectorsolutions/FlatJsonConsoleFormatter</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/nick-durcholz-vectorsolutions/FlatJsonConsoleFormatter</PackageProjectUrl>
-    <PackageReleaseNotes>Add MergeDuplicateKeys configuration option to merge state keys in log message instead of appending a number to make them unique.</PackageReleaseNotes>
+    <PackageReleaseNotes>remove net7.0 target and add net8.0 target</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="7.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="7.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>
