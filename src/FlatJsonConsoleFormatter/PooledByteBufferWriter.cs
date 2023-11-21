@@ -1,4 +1,4 @@
-//Copied from 8e9a17b2 of https://github.com/dotnet/runtime.git
+//Copied from 5fa2080e2ff of https://github.com/dotnet/runtime.git src/libraries/Common/src/System/Text/Json/PooledByteBufferWriter.cs
 
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
@@ -31,8 +31,8 @@ internal sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
     private PooledByteBufferWriter()
     {
 #if NETCOREAPP
-            // Ensure we are in sync with the Array.MaxLength implementation.
-            Debug.Assert(MaximumBufferSize == Array.MaxLength);
+        // Ensure we are in sync with the Array.MaxLength implementation.
+        Debug.Assert(MaximumBufferSize == Array.MaxLength);
 #endif
     }
 
@@ -151,15 +151,15 @@ internal sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
     }
 
 #if NETCOREAPP
-        internal ValueTask WriteToStreamAsync(Stream destination, CancellationToken cancellationToken)
-        {
-            return destination.WriteAsync(WrittenMemory, cancellationToken);
-        }
+    internal ValueTask WriteToStreamAsync(Stream destination, CancellationToken cancellationToken)
+    {
+        return destination.WriteAsync(WrittenMemory, cancellationToken);
+    }
 
-        internal void WriteToStream(Stream destination)
-        {
-            destination.Write(WrittenMemory.Span);
-        }
+    internal void WriteToStream(Stream destination)
+    {
+        destination.Write(WrittenMemory.Span);
+    }
 #else
     internal Task WriteToStreamAsync(Stream destination, CancellationToken cancellationToken)
     {
