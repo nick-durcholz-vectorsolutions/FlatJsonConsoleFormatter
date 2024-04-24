@@ -81,7 +81,7 @@ public class FlatJsonConsoleFormatter : ConsoleFormatter, IDisposable
                 }
 
                 writer.WriteStartObject();
-                foreach (var prop in messageProperties) 
+                foreach (var prop in messageProperties)
                     WriteItem(writer, prop);
                 writer.WriteEndObject();
                 writer.Flush();
@@ -95,7 +95,7 @@ public class FlatJsonConsoleFormatter : ConsoleFormatter, IDisposable
         textWriter.Write(Environment.NewLine);
     }
 
-    private void AddMessageProperty(Dictionary<string, object?> messageProperties, string key, object value)
+    private void AddMessageProperty(Dictionary<string, object?> messageProperties, string key, object? value)
     {
         if (FormatterOptions.MergeDuplicateKeys)
         {
