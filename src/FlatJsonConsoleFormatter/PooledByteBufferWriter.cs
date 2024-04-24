@@ -81,17 +81,14 @@ internal sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
         }
     }
 
-    public void Clear()
-    {
-        ClearHelper();
-    }
+    public void Clear() => ClearHelper();
 
     public void ClearAndReturnBuffers()
     {
         Debug.Assert(_rentedBuffer != null);
 
         ClearHelper();
-        byte[] toReturn = _rentedBuffer;
+        var toReturn = _rentedBuffer;
         _rentedBuffer = null;
         ArrayPool<byte>.Shared.Return(toReturn);
     }
@@ -114,7 +111,7 @@ internal sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
         }
 
         ClearHelper();
-        byte[] toReturn = _rentedBuffer;
+        var toReturn = _rentedBuffer;
         _rentedBuffer = null;
         ArrayPool<byte>.Shared.Return(toReturn);
     }
@@ -128,7 +125,7 @@ internal sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
         _index = 0;
     }
 
-    public static PooledByteBufferWriter CreateEmptyInstanceForCaching() => new PooledByteBufferWriter();
+    public static PooledByteBufferWriter CreateEmptyInstanceForCaching() => new();
 
     public void Advance(int count)
     {
@@ -151,15 +148,10 @@ internal sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
     }
 
 #if NETCOREAPP
-    internal ValueTask WriteToStreamAsync(Stream destination, CancellationToken cancellationToken)
-    {
-        return destination.WriteAsync(WrittenMemory, cancellationToken);
-    }
+    internal ValueTask WriteToStreamAsync(Stream destination, CancellationToken cancellationToken) =>
+        destination.WriteAsync(WrittenMemory, cancellationToken);
 
-    internal void WriteToStream(Stream destination)
-    {
-        destination.Write(WrittenMemory.Span);
-    }
+    internal void WriteToStream(Stream destination) => destination.Write(WrittenMemory.Span);
 #else
     internal Task WriteToStreamAsync(Stream destination, CancellationToken cancellationToken)
     {
@@ -179,8 +171,8 @@ internal sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
         Debug.Assert(_rentedBuffer != null);
         Debug.Assert(sizeHint > 0);
 
-        int currentLength = _rentedBuffer.Length;
-        int availableSpace = currentLength - _index;
+        var currentLength = _rentedBuffer.Length;
+        var availableSpace = currentLength - _index;
 
         // If we've reached ~1GB written, grow to the maximum buffer
         // length to avoid incessant minimal growths causing perf issues.
@@ -191,9 +183,9 @@ internal sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
 
         if (sizeHint > availableSpace)
         {
-            int growBy = Math.Max(sizeHint, currentLength);
+            var growBy = Math.Max(sizeHint, currentLength);
 
-            int newSize = currentLength + growBy;
+            var newSize = currentLength + growBy;
 
             if ((uint)newSize > MaximumBufferSize)
             {
@@ -204,14 +196,14 @@ internal sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
                 }
             }
 
-            byte[] oldBuffer = _rentedBuffer;
+            var oldBuffer = _rentedBuffer;
 
             _rentedBuffer = ArrayPool<byte>.Shared.Rent(newSize);
 
             Debug.Assert(oldBuffer.Length >= _index);
             Debug.Assert(_rentedBuffer.Length >= _index);
 
-            Span<byte> oldBufferAsSpan = oldBuffer.AsSpan(0, _index);
+            var oldBufferAsSpan = oldBuffer.AsSpan(0, _index);
             oldBufferAsSpan.CopyTo(_rentedBuffer);
             oldBufferAsSpan.Clear();
             ArrayPool<byte>.Shared.Return(oldBuffer);
@@ -222,12 +214,10 @@ internal sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
     }
 }
 
-internal static partial class ThrowHelper
+internal static class ThrowHelper
 {
     [DoesNotReturn]
     [MethodImpl(MethodImplOptions.NoInlining)]
-    public static void ThrowOutOfMemoryException_BufferMaximumSizeExceeded(uint capacity)
-    {
+    public static void ThrowOutOfMemoryException_BufferMaximumSizeExceeded(uint capacity) =>
         throw new OutOfMemoryException($"Maximum buffer size exceeded: {capacity}");
-    }
 }
