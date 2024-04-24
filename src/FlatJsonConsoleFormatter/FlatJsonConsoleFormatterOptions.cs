@@ -3,7 +3,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Text.Json;
 using Microsoft.Extensions.Logging.Console;
 
 namespace FlatJsonConsoleFormatter;
@@ -11,7 +10,7 @@ namespace FlatJsonConsoleFormatter;
 /// <summary>
 ///     Options for FlatJsonConsoleFormatter. Scopes are included by default.
 /// </summary>
-public class FlatJsonConsoleFormatterOptions : ConsoleFormatterOptions
+public class FlatJsonConsoleFormatterOptions : JsonConsoleFormatterOptions
 {
     /// <summary>
     ///     Initializes a new instance of the <see cref="FlatJsonConsoleFormatterOptions" /> class.
@@ -20,11 +19,6 @@ public class FlatJsonConsoleFormatterOptions : ConsoleFormatterOptions
     {
         IncludeScopes = true;
     }
-
-    /// <summary>
-    ///     Gets or sets JsonWriterOptions.
-    /// </summary>
-    public JsonWriterOptions JsonWriterOptions { get; set; }
 
     /// <summary>
     ///     If true, the logged category will only include characters after the last '.'. Defaults to false.
@@ -49,7 +43,7 @@ public class FlatJsonConsoleFormatterOptions : ConsoleFormatterOptions
     ///     </code>
     ///
     ///     Set this to true in order to log {x: 3}
-    ///     Set this to false in order to log {x: 1, x_1: 2, x_2: 3} 
+    ///     Set this to false in order to log {x: 1, x_1: 2, x_2: 3}
     /// </remarks>
     public bool MergeDuplicateKeys { get; set; }
 }
