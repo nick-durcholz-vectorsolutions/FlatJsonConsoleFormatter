@@ -47,9 +47,8 @@ public class FlatJsonConsoleFormatterOptions : ConsoleFormatterOptions
     ///     using (_logger.BeginScope(new Dictionary&lt;string, object&gt; { { "x", 2 } }))
     ///         _logger.LogDebug("x is {x}", 3);
     ///     </code>
-    ///
     ///     Set this to true in order to log {x: 3}
-    ///     Set this to false in order to log {x: 1, x_1: 2, x_2: 3} 
+    ///     Set this to false in order to log {x: 1, x_1: 2, x_2: 3}
     /// </remarks>
     public bool MergeDuplicateKeys { get; set; }
 }
