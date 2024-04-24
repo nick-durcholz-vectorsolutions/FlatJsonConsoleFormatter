@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -29,17 +30,23 @@ public class FlatJsonConsoleFormatter : ConsoleFormatter, IDisposable
         _optionsReloadToken = options.OnChange(ReloadLoggerOptions);
     }
 
-    public override void Write<TState>(in LogEntry<TState> logEntry, IExternalScopeProvider? scopeProvider, TextWriter textWriter)
+    internal FlatJsonConsoleFormatterOptions FormatterOptions { get; set; }
+
+    public void Dispose() => _optionsReloadToken?.Dispose();
+
+    public override void Write<TState>(in LogEntry<TState> logEntry, IExternalScopeProvider? scopeProvider,
+        TextWriter textWriter)
     {
-        string message = logEntry.Formatter(logEntry.State, logEntry.Exception);
+        var message = logEntry.Formatter(logEntry.State, logEntry.Exception);
         if (logEntry.Exception == null && message == null)
         {
             return;
         }
-        LogLevel logLevel = logEntry.LogLevel;
-        string category = logEntry.Category;
-        int eventId = logEntry.EventId.Id;
-        Exception? exception = logEntry.Exception;
+
+        var logLevel = logEntry.LogLevel;
+        var category = logEntry.Category;
+        var eventId = logEntry.EventId.Id;
+        var exception = logEntry.Exception;
         const int DefaultBufferSize = 1024;
         using (var output = new PooledByteBufferWriter(DefaultBufferSize))
         {
@@ -49,22 +56,24 @@ public class FlatJsonConsoleFormatter : ConsoleFormatter, IDisposable
                 var timestampFormat = FormatterOptions.TimestampFormat;
                 if (timestampFormat != null)
                 {
-                    DateTimeOffset dateTimeOffset = FormatterOptions.UseUtcTimestamp ? DateTimeOffset.UtcNow : DateTimeOffset.Now;
+                    var dateTimeOffset = FormatterOptions.UseUtcTimestamp ? DateTimeOffset.UtcNow : DateTimeOffset.Now;
                     AddMessageProperty(messageProperties, "Timestamp", dateTimeOffset.ToString(timestampFormat));
                 }
+
                 if (FormatterOptions.IncludeEventId)
                     AddMessageProperty(messageProperties, nameof(logEntry.EventId), eventId);
                 AddMessageProperty(messageProperties, nameof(logEntry.LogLevel), GetLogLevelString(logLevel));
                 if (FormatterOptions.TruncateCategory)
                 {
                     var cat = logEntry.Category;
-                    int i = cat.LastIndexOf('.');
+                    var i = cat.LastIndexOf('.');
                     if (i > 0)
                         cat = cat.Substring(i + 1);
                     AddMessageProperty(messageProperties, nameof(logEntry.Category), cat);
                 }
                 else
                     AddMessageProperty(messageProperties, nameof(logEntry.Category), category);
+
                 AddMessageProperty(messageProperties, "Message", message);
 
                 if (exception != null)
@@ -73,7 +82,7 @@ public class FlatJsonConsoleFormatter : ConsoleFormatter, IDisposable
                 AddScopeInformation(messageProperties, writer, scopeProvider);
                 if (logEntry.State is IReadOnlyCollection<KeyValuePair<string, object>> stateProperties)
                 {
-                    foreach (KeyValuePair<string, object> item in stateProperties)
+                    foreach (var item in stateProperties)
                     {
                         if (item.Key != "{OriginalFormat}")
                             AddMessageProperty(messageProperties, item.Key, item.Value);
@@ -92,6 +101,7 @@ public class FlatJsonConsoleFormatter : ConsoleFormatter, IDisposable
                 textWriter.Write(Encoding.UTF8.GetString(output.WrittenMemory.Span.ToArray()));
 #endif
         }
+
         textWriter.Write(Environment.NewLine);
     }
 
@@ -103,17 +113,16 @@ public class FlatJsonConsoleFormatter : ConsoleFormatter, IDisposable
         }
         else
         {
-            string k = key;
-            int n = 1;
+            var k = key;
+            var n = 1;
             while (messageProperties.ContainsKey(k))
                 k = $"{key}_{n++}";
             messageProperties.Add(k, value);
         }
     }
 
-    private static string GetLogLevelString(LogLevel logLevel)
-    {
-        return logLevel switch
+    private static string GetLogLevelString(LogLevel logLevel) =>
+        logLevel switch
         {
             LogLevel.Trace => "Trace",
             LogLevel.Debug => "Debug",
@@ -123,18 +132,18 @@ public class FlatJsonConsoleFormatter : ConsoleFormatter, IDisposable
             LogLevel.Critical => "Critical",
             _ => throw new ArgumentOutOfRangeException(nameof(logLevel))
         };
-    }
 
-    private void AddScopeInformation(Dictionary<string, object?> messageProperties, Utf8JsonWriter writer, IExternalScopeProvider? scopeProvider)
+    private void AddScopeInformation(Dictionary<string, object?> messageProperties, Utf8JsonWriter writer,
+        IExternalScopeProvider? scopeProvider)
     {
-        int scopeNum = 0;
+        var scopeNum = 0;
         if (FormatterOptions.IncludeScopes && scopeProvider != null)
         {
             scopeProvider.ForEachScope((scope, _) =>
             {
                 if (scope is IEnumerable<KeyValuePair<string, object>> scopeItems)
                 {
-                    foreach (KeyValuePair<string, object> item in scopeItems)
+                    foreach (var item in scopeItems)
                     {
                         AddMessageProperty(messageProperties, item.Key, item.Value);
                     }
@@ -206,16 +215,6 @@ public class FlatJsonConsoleFormatter : ConsoleFormatter, IDisposable
 
     private static string? ToInvariantString(object? obj) => Convert.ToString(obj, CultureInfo.InvariantCulture);
 
-    internal FlatJsonConsoleFormatterOptions FormatterOptions { get; set; }
-
-    [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(FormatterOptions))]
-    private void ReloadLoggerOptions(FlatJsonConsoleFormatterOptions options)
-    {
-        FormatterOptions = options;
-    }
-
-    public void Dispose()
-    {
-        _optionsReloadToken?.Dispose();
-    }
+    [MemberNotNull(nameof(FormatterOptions))]
+    private void ReloadLoggerOptions(FlatJsonConsoleFormatterOptions options) => FormatterOptions = options;
 }

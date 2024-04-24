@@ -6,7 +6,8 @@ namespace FlatJsonConsoleFormatter;
 
 public static class LoggingBuilderExtensions
 {
-    public static ILoggingBuilder AddFlatJsonConsole(this ILoggingBuilder builder, Action<FlatJsonConsoleFormatterOptions>? configure = null)
+    public static ILoggingBuilder AddFlatJsonConsole(this ILoggingBuilder builder,
+        Action<FlatJsonConsoleFormatterOptions>? configure = null)
     {
         builder.AddConsole(options => options.FormatterName = FlatJsonConsoleFormatter.FormatterName);
         builder.AddConsoleFormatter<FlatJsonConsoleFormatter, FlatJsonConsoleFormatterOptions>();
