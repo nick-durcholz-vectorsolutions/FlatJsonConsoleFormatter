@@ -2,6 +2,7 @@
 
 namespace System.Diagnostics.CodeAnalysis;
 
+#if !NET5_0_OR_GREATER
 internal sealed class MemberNotNullAttribute : Attribute
 {
     /// <summary>Initializes the attribute with a field or property member.</summary>
@@ -19,7 +20,5 @@ internal sealed class MemberNotNullAttribute : Attribute
     /// <summary>Gets field or property member names.</summary>
     public string[] Members { get; }
 }
+#endif
 
-/// <summary>Specifies that a method that will never return under any circumstance.</summary>
-[AttributeUsage(AttributeTargets.Method, Inherited = false)]
-internal sealed class DoesNotReturnAttribute : Attribute { }
