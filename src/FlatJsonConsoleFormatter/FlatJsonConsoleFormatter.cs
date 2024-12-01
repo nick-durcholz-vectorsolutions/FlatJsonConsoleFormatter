@@ -4,6 +4,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -86,9 +87,21 @@ public class FlatJsonConsoleFormatter : ConsoleFormatter, IDisposable
                 writer.WriteEndObject();
                 writer.Flush();
             }
-#if NETCOREAPP
-            textWriter.Write(Encoding.UTF8.GetString(output.WrittenMemory.Span));
+            
+#if NET 
+                var messageBytes = output.WrittenMemory.Span;
+                var logMessageBuffer = ArrayPool<char>.Shared.Rent(Encoding.UTF8.GetMaxCharCount(messageBytes.Length));
+                try
+                {
+                    var charsWritten = Encoding.UTF8.GetChars(messageBytes, logMessageBuffer);
+                    textWriter.Write(logMessageBuffer, 0, charsWritten);
+                }
+                finally
+                {
+                    ArrayPool<char>.Shared.Return(logMessageBuffer);
+                }
 #else
+                // JsonConsoleFormatter uses unsafe APIs; to avoid these, we fall back to the old version
                 textWriter.Write(Encoding.UTF8.GetString(output.WrittenMemory.Span.ToArray()));
 #endif
         }
