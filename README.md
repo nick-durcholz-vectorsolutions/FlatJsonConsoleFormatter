@@ -5,6 +5,28 @@ JsonConsoleFormatter. The default JSON formatter creates an object that is deepl
 information, and repeats log messages. This log message formatter gives you a simple collection of key/value pairs
 formatted as a json object that includes state and scopes, while avoiding unnecessary information.
 
+## Breaking Changes in v2.0
+
+In version 2.0, default options were introduced to make the most common use cases produce more succinct log messages.
+
+* Timestamps are represented in UTC timezone formatted as ISO 8601 strings
+* Category names are truncated to include only the text after the lat period. Typically this means that the log category will be the class name without the namespace.
+* Duplicate scope keys are merged instead of numbered.
+
+To use old behavior, set explicit options in startup:
+
+    var services = new ServiceCollection();
+    services.AddLogging(builder =>
+    {
+        builder.AddConfiguration(configuration.GetSection("Logging"));
+        builder.AddFlatJsonConsole(options => {
+            options.TruncateCategory = false;
+            options.MergeDuplicateKeys = false;
+            options.TimestampFormat = "<your-old-format>";
+            options.UseUtcTimestamp = false;
+        });
+    });
+
 ## Usage
 
 Add the nuget reference

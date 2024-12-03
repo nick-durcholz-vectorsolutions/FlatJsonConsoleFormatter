@@ -8,7 +8,8 @@ using Microsoft.Extensions.Logging.Console;
 namespace FlatJsonConsoleFormatter;
 
 /// <summary>
-///     Options for FlatJsonConsoleFormatter. Scopes are included by default.
+///     Options for FlatJsonConsoleFormatter. With some opinionated defaults: scopes included, categories truncated,
+///     event ids ignored, and UTC timestamps formatted as ISO 8601 compatible round-trip format  
 /// </summary>
 public class FlatJsonConsoleFormatterOptions : JsonConsoleFormatterOptions
 {
@@ -18,6 +19,11 @@ public class FlatJsonConsoleFormatterOptions : JsonConsoleFormatterOptions
     public FlatJsonConsoleFormatterOptions()
     {
         IncludeScopes = true;
+        TruncateCategory = true;
+        IncludeEventId = false;
+        MergeDuplicateKeys = true;
+        TimestampFormat = "o";
+        UseUtcTimestamp = true;
     }
 
     /// <summary>
