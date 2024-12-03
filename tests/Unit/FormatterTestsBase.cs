@@ -1,7 +1,6 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using FlatJsonConsoleFormatter;
-using FlatFormatter = FlatJsonConsoleFormatter.FlatJsonConsoleFormatter;
 using FluentAssertions;
 using FluentAssertions.Json;
 using Microsoft.Extensions.Logging;
@@ -11,14 +10,20 @@ using Xunit.Abstractions;
 
 namespace Unit;
 
-public class FlatJsonFormatterTests : FormatterTestsBase<FlatFormatter, FlatJsonConsoleFormatterOptions>
+public class FlatJsonFormatterTests
 {
-    public FlatJsonFormatterTests(ITestOutputHelper testOutputHelper) : base(FakeLoggerBuilder.FlatJson(),
-        testOutputHelper)
+    public ITestOutputHelper TestOutputHelper { get; }
+    public FakeLoggerBuilder<FlatJsonConsoleFormatterOptions> LoggerBuilder { get; }
+
+    protected const string _state = "This is a test, and {curly braces} are just fine!";
+    protected readonly Func<object, Exception, string> _defaultFormatter = (state, exception) => state.ToString();
+
+    public FlatJsonFormatterTests(ITestOutputHelper testOutputHelper)
     {
+        TestOutputHelper = testOutputHelper;
+        LoggerBuilder = FakeLoggerBuilder.FlatJson();
     }
 
-    [Theory(Skip = "Test fails, not clear why")]
     [MemberData(nameof(LogLevels))]
     public void Log_LogsCorrectTimestamp(LogLevel logLevel)
     {
@@ -44,26 +49,6 @@ public class FlatJsonFormatterTests : FormatterTestsBase<FlatFormatter, FlatJson
         logger.Formatted.Should().BeValidJson() //
             .Subject.Should().HaveElement("Timestamp").Which. //
             Should().MatchRegex(@"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}");
-    }
-}
-
-public abstract class FormatterTestsBase<TFormatter, TFormatterOptions>
-    where TFormatter : ConsoleFormatter
-    where TFormatterOptions : JsonConsoleFormatterOptions, new()
-{
-    public ITestOutputHelper TestOutputHelper { get; }
-    public FakeLoggerBuilder<TFormatterOptions> LoggerBuilder { get; }
-
-
-    protected const string _loggerName = FakeLoggerBuilder.DefaultLoggerName;
-    protected const string _state = "This is a test, and {curly braces} are just fine!";
-    protected readonly Func<object, Exception, string> _defaultFormatter = (state, exception) => state.ToString();
-
-    public FormatterTestsBase(FakeLoggerBuilder<TFormatterOptions> fakeLoggerBuilder,
-        ITestOutputHelper testOutputHelper)
-    {
-        TestOutputHelper = testOutputHelper;
-        LoggerBuilder = fakeLoggerBuilder.WithTestOutputHelper(testOutputHelper);
     }
 
     [Fact]
@@ -94,8 +79,6 @@ public abstract class FormatterTestsBase<TFormatter, TFormatterOptions>
         // Assert
         logger.Formatted.Should().BeValidJson();
     }
-
-    #region ScopeTests
 
     [Fact]
     public void EnabledScope_ContainsScopeProperties()
@@ -130,9 +113,33 @@ public abstract class FormatterTestsBase<TFormatter, TFormatterOptions>
             .Subject.Should().NotHaveElement("Key");
     }
 
-    #endregion
-    
-    #region runtime/ConsoleFormatterTests
+    [Fact]
+    public void scope_as_strings_logs_original_format_and_includes_context()
+    {
+        // Arrange
+        var logger = LoggerBuilder 
+                    .With(o =>
+                     {
+                         o.IncludeScopes = true;
+                         o.JsonWriterOptions = new JsonWriterOptions() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+                     })
+                    .Build();
+
+        using (logger.BeginScope("Scope with named parameter {namedParameter}", 123))
+        using (logger.BeginScope("SimpleScope"))
+            logger.Log(LogLevel.Warning, 0, "Message with {args}", 73);
+
+        var json = logger.Formatted.Should().BeValidJson().Subject;
+        json.Should().HaveElement("Message").Which.Should().HaveValue("Message with 73");
+        json.Should().HaveElement("Scope0").Which.Should().HaveValue("Scope with named parameter {namedParameter}");
+        json.Should().HaveElement("Scope1").Which.Should().HaveValue("SimpleScope");
+        json.Should().HaveElement("namedParameter").Which.Should().HaveValue("123");
+        json.Should().HaveElement("args").Which.Should().HaveValue("73");
+        json.Should().HaveElement("LogLevel").Which.Should().HaveValue("Warning");
+        json.Should().HaveElement("Category").Which.Should().HaveValue("test");
+        json.Should().NotHaveElement("{OriginalFormat}");
+    }
+
 
     [Theory]
     [MemberData(nameof(LogLevels))]
@@ -162,37 +169,6 @@ public abstract class FormatterTestsBase<TFormatter, TFormatterOptions>
         act.Should().Throw<ArgumentOutOfRangeException>();
     }
 
-    #endregion
-
-    #region runtime/JsonConsoleFormatterTests
-
-    // TODO: remove this test
-    [Fact(Skip = "Test name is a misnomer, as there is scope")]
-    public void NoLogScope_DoesNotWriteAnyScopeContentToOutput_Json()
-    {
-        // Arrange
-        var logger = LoggerBuilder 
-            .With(o =>
-            {
-                o.IncludeScopes = true;
-                o.JsonWriterOptions = new JsonWriterOptions() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
-            })
-            .Build();
-
-        // Act
-        using (logger.BeginScope("Scope with named parameter {namedParameter}", 123))
-        using (logger.BeginScope("SimpleScope"))
-            logger.Log(LogLevel.Warning, 0, "Message with {args}", 73);
-
-        // Assert
-        Assert.Contains("Message with {args}", logger.Formatted);
-        Assert.Contains("73", logger.Formatted);
-        Assert.Contains("{OriginalFormat}", logger.Formatted);
-        Assert.Contains("namedParameter", logger.Formatted);
-        Assert.Contains("123", logger.Formatted);
-        Assert.Contains("SimpleScope", logger.Formatted);
-    }
-
     [Fact]
     public void Log_TimestampFormatSet_ContainsTimestamp()
     {
@@ -210,8 +186,6 @@ public abstract class FormatterTestsBase<TFormatter, TFormatterOptions>
 
     }
 
-    #endregion
-    
     public static TheoryData<LogLevel> LogLevels
     {
         get

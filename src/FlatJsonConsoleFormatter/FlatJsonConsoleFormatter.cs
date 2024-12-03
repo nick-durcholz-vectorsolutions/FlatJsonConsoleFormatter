@@ -181,7 +181,9 @@ public class FlatJsonConsoleFormatter : ConsoleFormatter, IDisposable
                 {
                     foreach (KeyValuePair<string, object?> item in scopeItems)
                     {
-                        AddMessageProperty(messageProperties, item.Key, item.Value);
+                        AddMessageProperty(messageProperties,
+                                           item.Key == "{OriginalFormat}" ? $"Scope{scopeNum++}" : item.Key,
+                                           item.Value);
                     }
                 }
                 else
