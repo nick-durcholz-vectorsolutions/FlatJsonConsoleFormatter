@@ -106,4 +106,5 @@ FlatJsonConsoleFormatter will log the following message instead:
     }
 
 It does this by merging the state and scope keys into a dictionary and writing them as top-level properties. When there
-is a conflict between the names of keys from different sources, a number is appended to one of them to differentiate.
+is a conflict between the names of keys from different sources, the default strategy is "last one wins", but you can set
+an option in startup to keep all scope items and differentiate them by appending a number to the key.
