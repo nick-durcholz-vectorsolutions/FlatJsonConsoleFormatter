@@ -1,9 +1,11 @@
-//Adapted from 5fa2080e2fff7bb31a4235250ce2f7a4bb1b64cb of https://github.com/dotnet/runtime.git src/libraries/Microsoft.Extensions.Logging.Console/src/JsonConsoleFormatter.cs
+//Adapted from commit 9d5a6a9aa463d6d10b0b0ba6d5982cc82f363dc3 of https://github.com/dotnet/runtime
+//https://github.com/dotnet/runtime/blob/9d5a6a9aa463d6d10b0b0ba6d5982cc82f363dc3/src/libraries/Microsoft.Extensions.Logging.Console/src/JsonConsoleFormatter.cs
 
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -31,15 +33,35 @@ public class FlatJsonConsoleFormatter : ConsoleFormatter, IDisposable
 
     public override void Write<TState>(in LogEntry<TState> logEntry, IExternalScopeProvider? scopeProvider, TextWriter textWriter)
     {
-        string message = logEntry.Formatter(logEntry.State, logEntry.Exception);
-        if (logEntry.Exception == null && message == null)
+        if (logEntry.State is BufferedLogRecord bufferedRecord)
         {
-            return;
+            string message = bufferedRecord.FormattedMessage ?? string.Empty;
+            WriteInternal(null, textWriter, message, bufferedRecord.LogLevel, logEntry.Category, bufferedRecord.EventId.Id, bufferedRecord.Exception,
+                          bufferedRecord.Attributes.Count > 0, null, bufferedRecord.Attributes, bufferedRecord.Timestamp);
         }
-        LogLevel logLevel = logEntry.LogLevel;
-        string category = logEntry.Category;
-        int eventId = logEntry.EventId.Id;
-        Exception? exception = logEntry.Exception;
+        else
+        {
+            string message = logEntry.Formatter(logEntry.State, logEntry.Exception);
+            if (logEntry.Exception == null && message == null)
+            {
+                return;
+            }
+
+            DateTimeOffset stamp = FormatterOptions.TimestampFormat != null
+                ? (FormatterOptions.UseUtcTimestamp ? DateTimeOffset.UtcNow : DateTimeOffset.Now)
+                : DateTimeOffset.MinValue;
+
+            // We extract most of the work into a non-generic method to save code size. If this was left in the generic
+            // method, we'd get generic specialization for all TState parameters, but that's unnecessary.
+            WriteInternal(scopeProvider, textWriter, message, logEntry.LogLevel, logEntry.Category, logEntry.EventId.Id, logEntry.Exception?.ToString(),
+                          logEntry.State != null, logEntry.State?.ToString(), logEntry.State as IReadOnlyList<KeyValuePair<string, object?>>, stamp);
+        }
+    }
+
+    private void WriteInternal(IExternalScopeProvider? scopeProvider, TextWriter textWriter, string? message, LogLevel logLevel,
+        string category, int eventId, string? exception, bool hasState, string? stateMessage, IReadOnlyList<KeyValuePair<string, object?>>? stateProperties,
+        DateTimeOffset stamp)
+    {
         const int DefaultBufferSize = 1024;
         using (var output = new PooledByteBufferWriter(DefaultBufferSize))
         {
@@ -49,35 +71,39 @@ public class FlatJsonConsoleFormatter : ConsoleFormatter, IDisposable
                 var timestampFormat = FormatterOptions.TimestampFormat;
                 if (timestampFormat != null)
                 {
-                    DateTimeOffset dateTimeOffset = FormatterOptions.UseUtcTimestamp ? DateTimeOffset.UtcNow : DateTimeOffset.Now;
-                    AddMessageProperty(messageProperties, "Timestamp", dateTimeOffset.ToString(timestampFormat));
+                    AddMessageProperty(messageProperties, "Timestamp", stamp.ToString(timestampFormat));
                 }
                 if (FormatterOptions.IncludeEventId)
-                    AddMessageProperty(messageProperties, nameof(logEntry.EventId), eventId);
-                AddMessageProperty(messageProperties, nameof(logEntry.LogLevel), GetLogLevelString(logLevel));
+                    AddMessageProperty(messageProperties, nameof(LogEntry<object>.EventId), eventId);
+                AddMessageProperty(messageProperties, nameof(LogEntry<object>.LogLevel), GetLogLevelString(logLevel));
                 if (FormatterOptions.TruncateCategory)
                 {
-                    var cat = logEntry.Category;
+                    var cat = category;
                     int i = cat.LastIndexOf('.');
                     if (i > 0)
                         cat = cat.Substring(i + 1);
-                    AddMessageProperty(messageProperties, nameof(logEntry.Category), cat);
+                    AddMessageProperty(messageProperties, nameof(LogEntry<object>.Category), cat);
                 }
                 else
-                    AddMessageProperty(messageProperties, nameof(logEntry.Category), category);
+                    AddMessageProperty(messageProperties, nameof(LogEntry<object>.Category), category);
                 AddMessageProperty(messageProperties, "Message", message);
 
                 if (exception != null)
-                    AddMessageProperty(messageProperties, nameof(Exception), exception.ToString());
+                    AddMessageProperty(messageProperties, nameof(Exception), exception);
 
                 AddScopeInformation(messageProperties, writer, scopeProvider);
-                if (logEntry.State is IReadOnlyCollection<KeyValuePair<string, object>> stateProperties)
+                if (hasState)
                 {
-                    foreach (KeyValuePair<string, object> item in stateProperties)
+                    if (stateProperties != null)
                     {
-                        if (item.Key != "{OriginalFormat}")
-                            AddMessageProperty(messageProperties, item.Key, item.Value);
+                        foreach (KeyValuePair<string, object?> item in stateProperties)
+                        {
+                            if (item.Key != "{OriginalFormat}")
+                                AddMessageProperty(messageProperties, item.Key, item.Value);
+                        }
                     }
+                    else if (stateMessage != null)
+                        AddMessageProperty(messageProperties, nameof(LogEntry<object>.State), stateMessage);
                 }
 
                 writer.WriteStartObject();
@@ -86,11 +112,30 @@ public class FlatJsonConsoleFormatter : ConsoleFormatter, IDisposable
                 writer.WriteEndObject();
                 writer.Flush();
             }
-#if NETCOREAPP
-            textWriter.Write(Encoding.UTF8.GetString(output.WrittenMemory.Span));
+
+            var messageBytes = output.WrittenMemory.Span;
+            var logMessageBuffer = ArrayPool<char>.Shared.Rent(Encoding.UTF8.GetMaxCharCount(messageBytes.Length));
+            try
+            {
+#if NET
+                var charsWritten = Encoding.UTF8.GetChars(messageBytes, logMessageBuffer);
 #else
-                textWriter.Write(Encoding.UTF8.GetString(output.WrittenMemory.Span.ToArray()));
+               int charsWritten;
+               unsafe
+               {
+                   fixed (byte* messageBytesPtr = messageBytes)
+                   fixed (char* logMessageBufferPtr = logMessageBuffer)
+                   {
+                       charsWritten = Encoding.UTF8.GetChars(messageBytesPtr, messageBytes.Length, logMessageBufferPtr, logMessageBuffer.Length);
+                   }
+               }
 #endif
+                textWriter.Write(logMessageBuffer, 0, charsWritten);
+            }
+            finally
+            {
+                ArrayPool<char>.Shared.Return(logMessageBuffer);
+            }
         }
         textWriter.Write(Environment.NewLine);
     }
@@ -132,9 +177,9 @@ public class FlatJsonConsoleFormatter : ConsoleFormatter, IDisposable
         {
             scopeProvider.ForEachScope((scope, _) =>
             {
-                if (scope is IEnumerable<KeyValuePair<string, object>> scopeItems)
+                if (scope is IEnumerable<KeyValuePair<string, object?>> scopeItems)
                 {
-                    foreach (KeyValuePair<string, object> item in scopeItems)
+                    foreach (KeyValuePair<string, object?> item in scopeItems)
                     {
                         AddMessageProperty(messageProperties, item.Key, item.Value);
                     }
@@ -162,10 +207,10 @@ public class FlatJsonConsoleFormatter : ConsoleFormatter, IDisposable
                 writer.WriteNumber(key, sbyteValue);
                 break;
             case char charValue:
-#if NETCOREAPP
+#if NET
                 writer.WriteString(key, MemoryMarshal.CreateSpan(ref charValue, 1));
 #else
-                    writer.WriteString(key, charValue.ToString());
+                writer.WriteString(key, charValue.ToString());
 #endif
                 break;
             case decimal decimalValue:
