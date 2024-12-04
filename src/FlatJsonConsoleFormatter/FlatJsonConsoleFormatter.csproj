@@ -13,9 +13,10 @@
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/nick-durcholz-vectorsolutions/FlatJsonConsoleFormatter</PackageProjectUrl>
     <PackageReleaseNotes>
-      BREAKING CHANGES IN 2.0: Default options were changed to use UTC timestamps, truncate category names, and merge duplicate log scope keys. To use old behavior, set explicit options in startup.
+      BREAKING CHANGES IN 2.0: Default options were changed to truncate category names and merge duplicate log scope keys. To use old behavior, set explicit options in startup.
 
-      Remove net6.0; Add net9.0 target; Merge changes made in v9.0.0 of Microsoft.Extensions.Logging.Console</PackageReleaseNotes>
+      Remove net6.0; Add net9.0 target; Merge changes made in v9.0.0 of Microsoft.Extensions.Logging.Console
+    </PackageReleaseNotes>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 

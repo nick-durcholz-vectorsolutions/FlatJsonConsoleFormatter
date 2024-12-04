@@ -22,8 +22,6 @@ public class FlatJsonConsoleFormatterOptions : JsonConsoleFormatterOptions
         TruncateCategory = true;
         IncludeEventId = false;
         MergeDuplicateKeys = true;
-        TimestampFormat = "o";
-        UseUtcTimestamp = true;
     }
 
     /// <summary>
