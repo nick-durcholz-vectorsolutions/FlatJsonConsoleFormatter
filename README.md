@@ -63,7 +63,11 @@ The above code results in the following log message:
         "State": {
             "Message": "GET https://example.com/api/endpoint/32120",
             "Endpoint": "https://example.com/api/endpoint/32120",
-            "{OriginalFormat}": "GET {Endpoint}"rstem.Object]",
+            "{OriginalFormat}": "GET {Endpoint}"
+        },
+        "Scopes": [
+            {
+                "Message": "System.Collections.Generic.Dictionary\u00602[System.String,System.Object]",
                 "MessageId": "a38cb57d-4719-4d39-a36c-19f75b289bb4"
             },
             {
