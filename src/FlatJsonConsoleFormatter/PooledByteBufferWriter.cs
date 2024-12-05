@@ -1,4 +1,5 @@
-//Copied from 5fa2080e2ff of https://github.com/dotnet/runtime.git src/libraries/Common/src/System/Text/Json/PooledByteBufferWriter.cs
+//Copied from commit 9d5a6a9aa463d6d10b0b0ba6d5982cc82f363dc3 of https://github.com/dotnet/runtime.git
+//https://github.com/dotnet/runtime/blob/9d5a6a9aa463d6d10b0b0ba6d5982cc82f363dc3/src/libraries/Common/src/System/Text/Json/PooledByteBufferWriter.cs
 
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
@@ -8,13 +9,14 @@ using System.Buffers;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace FlatJsonConsoleFormatter;
 
-internal sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
+internal sealed class PooledByteBufferWriter : PipeWriter, IDisposable
 {
     // This class allows two possible configurations: if rentedBuffer is not null then
     // it can be used as an IBufferWriter and holds a buffer that should eventually be
@@ -22,6 +24,7 @@ internal sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
     // cleared/disposed state and it must re-rent a buffer before it can be used again.
     private byte[]? _rentedBuffer;
     private int _index;
+    private readonly Stream? _stream;
 
     private const int MinimumBufferSize = 256;
 
@@ -30,7 +33,7 @@ internal sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
 
     private PooledByteBufferWriter()
     {
-#if NETCOREAPP
+#if NET
         // Ensure we are in sync with the Array.MaxLength implementation.
         Debug.Assert(MaximumBufferSize == Array.MaxLength);
 #endif
@@ -42,6 +45,11 @@ internal sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
 
         _rentedBuffer = ArrayPool<byte>.Shared.Rent(initialCapacity);
         _index = 0;
+    }
+
+    public PooledByteBufferWriter(int initialCapacity, Stream stream) : this(initialCapacity)
+    {
+        _stream = stream;
     }
 
     public ReadOnlyMemory<byte> WrittenMemory
@@ -130,7 +138,7 @@ internal sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
 
     public static PooledByteBufferWriter CreateEmptyInstanceForCaching() => new PooledByteBufferWriter();
 
-    public void Advance(int count)
+    public override void Advance(int count)
     {
         Debug.Assert(_rentedBuffer != null);
         Debug.Assert(count >= 0);
@@ -138,40 +146,29 @@ internal sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
         _index += count;
     }
 
-    public Memory<byte> GetMemory(int sizeHint = MinimumBufferSize)
+    public override Memory<byte> GetMemory(int sizeHint = MinimumBufferSize)
     {
         CheckAndResizeBuffer(sizeHint);
         return _rentedBuffer.AsMemory(_index);
     }
 
-    public Span<byte> GetSpan(int sizeHint = MinimumBufferSize)
+    public override Span<byte> GetSpan(int sizeHint = MinimumBufferSize)
     {
         CheckAndResizeBuffer(sizeHint);
         return _rentedBuffer.AsSpan(_index);
     }
 
-#if NETCOREAPP
-    internal ValueTask WriteToStreamAsync(Stream destination, CancellationToken cancellationToken)
-    {
-        return destination.WriteAsync(WrittenMemory, cancellationToken);
-    }
-
+#if NET
     internal void WriteToStream(Stream destination)
     {
         destination.Write(WrittenMemory.Span);
     }
 #else
-    internal Task WriteToStreamAsync(Stream destination, CancellationToken cancellationToken)
-    {
-        Debug.Assert(_rentedBuffer != null);
-        return destination.WriteAsync(_rentedBuffer, 0, _index, cancellationToken);
-    }
-
-    internal void WriteToStream(Stream destination)
-    {
-        Debug.Assert(_rentedBuffer != null);
-        destination.Write(_rentedBuffer, 0, _index);
-    }
+        internal void WriteToStream(Stream destination)
+        {
+            Debug.Assert(_rentedBuffer != null);
+            destination.Write(_rentedBuffer, 0, _index);
+        }
 #endif
 
     private void CheckAndResizeBuffer(int sizeHint)
@@ -220,6 +217,28 @@ internal sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
         Debug.Assert(_rentedBuffer.Length - _index > 0);
         Debug.Assert(_rentedBuffer.Length - _index >= sizeHint);
     }
+
+    public override async ValueTask<FlushResult> FlushAsync(CancellationToken cancellationToken = default)
+    {
+        Debug.Assert(_stream is not null);
+#if NET
+        await _stream.WriteAsync(WrittenMemory, cancellationToken).ConfigureAwait(false);
+#else
+            Debug.Assert(_rentedBuffer != null);
+            await _stream.WriteAsync(_rentedBuffer, 0, _index, cancellationToken).ConfigureAwait(false);
+#endif
+        Clear();
+
+        return new FlushResult(isCanceled: false, isCompleted: false);
+    }
+
+    public override bool CanGetUnflushedBytes => true;
+    public override long UnflushedBytes => _index;
+
+    // This type is used internally in JsonSerializer to help buffer and flush bytes to the underlying Stream.
+    // It's only pretending to be a PipeWriter and doesn't need Complete or CancelPendingFlush for the internal usage.
+    public override void CancelPendingFlush() => throw new NotImplementedException();
+    public override void Complete(Exception? exception = null) => throw new NotImplementedException();
 }
 
 internal static partial class ThrowHelper
